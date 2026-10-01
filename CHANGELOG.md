@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.1](https://github.com/blackopsrepl/cronbar/compare/v0.1.0...v0.1.1) (2026-10-01)
+
+### Features
+
+* **branding:** introduce Tick the clockwork schedule keeper 0304bf6
+
+### Bug Fixes
+
+* **collector:** exclude the system crontab documentation legend f3d4eb1
+* **collector:** separate users on special system schedules 01c9fa1
+
 ## 0.1.0 (2026-10-01)
 
 ### Features
