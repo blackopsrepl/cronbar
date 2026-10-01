@@ -1,5 +1,12 @@
 # CronBar
 
+<p align="center">
+  <img src="docs/assets/cronbar-mascot.png" width="200" alt="Tick, CronBar’s clockwork owl, holding an amber sleeping job">
+</p>
+
+**Tick** keeps watch over the schedule. The amber sleeping job is a commented
+entry, ready to wake only when you deliberately run it.
+
 A SolverForge Linux companion: cached Waybar chip plus a native QuickShell panel
 for the current user's cron jobs, system crontab, `/etc/cron.d`, and anacron.
 Valid commented schedule lines are retained for deliberate manual execution.
