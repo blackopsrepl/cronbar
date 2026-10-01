@@ -1,0 +1,66 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "net/http"
+require "uri"
+require_relative "../lib/cronbar"
+
+# CI supplies a scoped job token; never persist it or print request headers.
+base = ENV.fetch("FORGEJO_SERVER_URL").delete_suffix("/")
+repo = ENV.fetch("FORGEJO_REPOSITORY")
+tag = ENV.fetch("RELEASE_TAG")
+abort "tag/version mismatch" unless tag == "v#{Cronbar::VERSION}"
+token = ENV.fetch("FORGEJO_TOKEN")
+api = "#{base}/api/v1/repos/#{repo}"
+
+request = lambda do |method, path, body = nil, type = "application/json"|
+  uri = URI("#{api}#{path}")
+  klass = { get: Net::HTTP::Get, post: Net::HTTP::Post }.fetch(method)
+  req = klass.new(uri)
+  req["Authorization"] = "token #{token}"
+  req["Content-Type"] = type
+  req.body = body if body
+  Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                 open_timeout: 30, read_timeout: 120) { |http| http.request(req) }
+end
+
+lookup = request.call(:get, "/releases/tags/#{URI.encode_www_form_component(tag)}")
+case lookup.code
+when "200"
+  release = JSON.parse(lookup.body)
+when "404"
+  require "open3"
+  notes, status = Open3.capture2("ruby", "bin/release-notes", tag)
+  abort "release notes failed" unless status.success?
+  response = request.call(:post, "/releases", JSON.generate(
+    tag_name: tag, name: "CronBar #{tag}", body: notes, draft: false, prerelease: false
+  ))
+  abort "release creation returned HTTP #{response.code}" unless response.code == "201"
+  release = JSON.parse(response.body)
+else
+  abort "release lookup returned HTTP #{lookup.code}"
+end
+id = release.fetch("id")
+assets = request.call(:get, "/releases/#{id}/assets")
+abort "asset lookup returned HTTP #{assets.code}" unless assets.code == "200"
+published = JSON.parse(assets.body).map { |asset| asset.fetch("name") }
+archive = "cronbar-#{Cronbar::VERSION}.tar.gz"
+[archive, "#{archive}.sha256"].each do |name|
+  next if published.include?(name)
+
+  body = File.binread(File.join("dist", name))
+  result = request.call(:post, "/releases/#{id}/assets?name=#{URI.encode_www_form_component(name)}",
+                        body, "application/octet-stream")
+  abort "asset upload returned HTTP #{result.code}" unless result.code == "201"
+end
+# Read the exact target back before reporting success.
+result = request.call(:get, "/releases/tags/#{URI.encode_www_form_component(tag)}")
+abort "release read-back failed" unless result.code == "200"
+verified = JSON.parse(result.body)
+abort "release is not published" if verified.fetch("draft")
+readback = request.call(:get, "/releases/#{id}/assets")
+abort "asset read-back failed" unless readback.code == "200"
+names = JSON.parse(readback.body).map { |asset| asset.fetch("name") }
+abort "release assets missing" unless ([archive, "#{archive}.sha256"] - names).empty?
+puts verified.fetch("html_url")

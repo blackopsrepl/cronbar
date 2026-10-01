@@ -1,0 +1,46 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+  release:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+      - name: Isolated scratch directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/cronbar-release"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP/cronbar-release" >> "$GITHUB_ENV"
+      - name: Verify tag and generated notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(ruby bin/release-check --version)"
+          test "$RELEASE_TAG" = "v$version"
+          test "$(git rev-list -n 1 "$RELEASE_TAG")" = "$(git rev-parse HEAD)"
+          ruby bin/release-notes "$RELEASE_TAG" > release-notes.md
+      - name: Build source archive and checksum
+        run: make dist
+      - name: Publish gated archive with changelog notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(ruby bin/release-check --version)"
+          gh release create "$RELEASE_TAG" \
+            "dist/cronbar-$version.tar.gz" "dist/cronbar-$version.tar.gz.sha256" \
+            --title "$RELEASE_TAG" --notes-file release-notes.md --verify-tag

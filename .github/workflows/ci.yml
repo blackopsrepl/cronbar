@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated scratch directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/cronbar-check"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP/cronbar-check" >> "$GITHUB_ENV"
+      - name: Syntax, tests, CLI, install and archive gates
+        run: make check

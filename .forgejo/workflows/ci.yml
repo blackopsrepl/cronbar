@@ -1,0 +1,13 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ruby
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - name: Check source and isolated release paths
+        run: make release-check
