@@ -26,7 +26,7 @@ module Cronbar
           surface: job[:surface],
           source: job[:source],
           startedAt: Time.now.utc.iso8601,
-          dryRun: dry_run
+          dryRun: !!dry_run
         }
 
         if dry_run

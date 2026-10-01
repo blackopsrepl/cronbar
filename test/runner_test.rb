@@ -19,6 +19,7 @@ module Cronbar
           assert_equal 0, outcome[:record][:exitCode]
           assert_includes outcome[:record][:stdout], "cronbar-proof"
           refute outcome[:dryRun]
+          assert_equal false, outcome[:record][:dryRun]
 
           runs = State.read_runs(config)
           assert_equal 1, runs[:runs].length
