@@ -33,12 +33,14 @@ module CronbarTestHelpers
   # The run-gate pass file lives outside the checkout; tests point
   # Cronbar::Core::Config.gate_path at a temp copy.
   def with_gate_pass(pass)
-    file = File.join(Dir.mktmpdir, "run.pass")
-    digest = Digest::SHA256.hexdigest("cronbar-run:#{pass}")
-    File.write(file, "#{digest}\n")
     old_path = Cronbar::Core::Config.gate_path
-    Cronbar::Core::Config.gate_path = file
-    yield file
+    Dir.mktmpdir("cronbar-gate-") do |root|
+      file = File.join(root, "run.pass")
+      digest = Digest::SHA256.hexdigest("cronbar-run:#{pass}")
+      File.write(file, "#{digest}\n", mode: "w", perm: 0o600)
+      Cronbar::Core::Config.gate_path = file
+      yield file
+    end
   ensure
     Cronbar::Core::Config.gate_path = old_path
   end
