@@ -92,6 +92,16 @@ module Cronbar
         assert_equal "15 3 * * *", sys[0][:schedule]
       end
 
+      def test_special_system_schedules_separate_the_user_from_the_command
+        ["sys", "cron.d"].each do |surface|
+          jobs = Collectors.parse_crontab("@hourly root run-parts /etc/cron.hourly\n", surface: surface, source: "fixture", system: true)
+          assert_equal 1, jobs.length
+          assert_equal "root", jobs.first[:user]
+          assert_equal "run-parts /etc/cron.hourly", jobs.first[:command]
+          assert_empty Collectors.parse_crontab("@hourly root\n", surface: surface, source: "fixture", system: true)
+        end
+      end
+
       def test_cron_d_files_group_under_their_file_name
         File.write(File.join(@paths["cron.d"], "backup-sync"), "0 2 * * * root rsync -a /srv /backup\n")
         File.write(File.join(@paths["cron.d"], "weird name"), "# not a valid cron.d filename\n")

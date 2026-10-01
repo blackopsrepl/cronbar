@@ -205,9 +205,11 @@ module Cronbar
 
         tokens = stripped.split(/\s+/)
         if tokens[0].start_with?("@") && SPECIAL_SCHEDULES.include?(tokens[0])
-          return nil if tokens.length < 2
+          return nil if tokens.length < (system ? 3 : 2)
 
-          return job(command: tokens[1..].join(" "), schedule: tokens[0], period: tokens[0], user: nil)
+          user = system ? tokens[1] : nil
+          command = tokens[(system ? 2 : 1)..].join(" ")
+          return job(command: command, schedule: tokens[0], period: tokens[0], user: user)
         end
 
         return nil unless vixie_entry?(tokens)
