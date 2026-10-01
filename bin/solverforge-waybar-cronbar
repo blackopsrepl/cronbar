@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Managed by CronBar; installed by make install-solverforge.
 set -euo pipefail
 
 config_path="${CRONBAR_CONFIG:-$HOME/.config/cronbar/config.json}"

@@ -1,0 +1,8 @@
+{
+  "name": "cronbar-release-tooling",
+  "private": true,
+  "description": "Development-only conventional changelog and tag tooling; runtime is Ruby stdlib",
+  "devDependencies": {
+    "commit-and-tag-version": "13.2.1"
+  }
+}

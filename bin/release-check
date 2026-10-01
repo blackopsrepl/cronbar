@@ -1,0 +1,237 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "digest"
+require "json"
+require "fileutils"
+require "open3"
+require "rbconfig"
+require "tmpdir"
+
+module CronbarTooling
+  ROOT = File.expand_path("..", __dir__)
+  module_function
+
+  def run!(*command, env: {}, chdir: ROOT)
+    output, error, status = Open3.capture3(env, *command, chdir: chdir)
+    puts output unless output.empty?
+    warn error unless error.empty?
+    raise "command failed (#{status.exitstatus}): #{command.join(' ')}" unless status.success?
+    output
+  end
+
+  VERSION_PATTERN = /\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\z/
+  PAYLOAD = %w[bin lib frontend test Makefile .gitignore .versionrc.js package.json package-lock.json README.md CHANGELOG.md LICENSE LICENSE.md AGENTS.md WIREFRAME.md docs examples .github .forgejo].freeze
+  def wrapper_content
+    File.read(File.join(ROOT, "bin/solverforge-waybar-cronbar"))
+  end
+
+  def version!
+    library = File.read(File.join(ROOT, "lib/cronbar.rb"))[/^  VERSION = "([^"]+)"$/, 1]
+    readme = File.read(File.join(ROOT, "README.md"))[/^## Current release: `v([^`]+)`$/, 1]
+    raise "README and lib version surfaces are missing or disagree" unless library && library == readme && VERSION_PATTERN.match?(library)
+    library
+  end
+
+  def paths
+    prefix = File.expand_path(ENV.fetch("PREFIX", File.join(Dir.home, ".local")))
+    [File.expand_path(ENV.fetch("APP_HOME", File.join(prefix, "share/cronbar"))),
+     File.expand_path(ENV.fetch("BIN_DIR", File.join(prefix, "bin"))),
+     File.expand_path(ENV.fetch("SOLVERFORGE_PATH", File.join(Dir.home, ".local/share/solverforge")))]
+  end
+
+  def safe_app!(app)
+    raise "APP_HOME must end in /cronbar and not be a symlink" unless File.basename(app) == "cronbar" && !File.symlink?(app)
+    raise "refusing to modify the checkout" if ROOT == app || ROOT.start_with?(app + "/") || app.start_with?(ROOT + "/")
+    if File.exist?(app)
+      raise "APP_HOME is not a CronBar install" unless File.file?(File.join(app, "bin/cronbar")) && File.file?(File.join(app, "lib/cronbar.rb"))
+    end
+  end
+
+  def install!
+    app, bins, = paths
+    safe_app!(app)
+    link = File.join(bins, "cronbar")
+    raise "refusing to replace unrelated executable #{link}" if (File.exist?(link) || File.symlink?(link)) && !(File.symlink?(link) && File.expand_path(File.readlink(link), bins) == File.join(app, "bin/cronbar"))
+    FileUtils.mkdir_p([app, bins])
+    %w[lib frontend].each do |path|
+      target = File.join(app, path)
+      raise "refusing symlink #{target}" if File.symlink?(target)
+      FileUtils.rm_rf(target)
+      FileUtils.cp_r(File.join(ROOT, path), target)
+    end
+    FileUtils.mkdir_p(File.join(app, "bin"))
+    raise "refusing symlinked installed bin" if File.symlink?(File.join(app, "bin"))
+    raise "refusing symlinked installed executable" if File.symlink?(File.join(app, "bin/cronbar"))
+    FileUtils.cp(File.join(ROOT, "bin/cronbar"), File.join(app, "bin/cronbar"))
+    File.chmod(0o755, File.join(app, "bin/cronbar"))
+    %w[README.md LICENSE LICENSE.md AGENTS.md WIREFRAME.md docs examples].each do |path|
+      source = File.join(ROOT, path)
+      next unless File.exist?(source)
+      target = File.join(app, path)
+      raise "refusing symlink #{target}" if File.symlink?(target)
+      FileUtils.rm_rf(target)
+      FileUtils.cp_r(source, target)
+    end
+    FileUtils.ln_sf(File.join(app, "bin/cronbar"), link)
+    puts "Installed #{app}; linked #{link}"
+  end
+
+  def owned_wrapper?(path)
+    return false unless File.file?(path) && !File.symlink?(path)
+
+    content = File.read(path)
+    content == wrapper_content || content.lines[1]&.strip == "# Managed by CronBar; installed by make install-solverforge."
+  end
+
+  def install_solverforge!
+    _, _, forge = paths
+    target = File.join(forge, "bin/solverforge-waybar-cronbar")
+    raise "refusing to replace unrelated wrapper #{target}" if (File.exist?(target) || File.symlink?(target)) && !owned_wrapper?(target)
+    FileUtils.mkdir_p(File.dirname(target))
+    FileUtils.cp(File.join(ROOT, "bin/solverforge-waybar-cronbar"), target)
+    File.chmod(0o755, target)
+    puts "Installed #{target}"
+  end
+
+  def uninstall!
+    app, bins, forge = paths
+    safe_app!(app)
+    link = File.join(bins, "cronbar")
+    FileUtils.rm_f(link) if File.symlink?(link) && File.expand_path(File.readlink(link), bins) == File.join(app, "bin/cronbar")
+    wrapper = File.join(forge, "bin/solverforge-waybar-cronbar")
+    FileUtils.rm_f(wrapper) if owned_wrapper?(wrapper)
+    FileUtils.rm_rf(app) if File.exist?(app)
+    puts "Uninstalled CronBar (config, cache, gate and shell integration preserved)"
+  end
+
+  def dist!(output = ENV.fetch("DIST_DIR", File.join(ROOT, "dist")))
+    version = version!
+    FileUtils.mkdir_p(output)
+    archive = File.expand_path("cronbar-#{version}.tar.gz", output)
+    Dir.mktmpdir("cronbar-dist-") do |stage|
+      top = File.join(stage, "cronbar-#{version}")
+      FileUtils.mkdir_p(top)
+      PAYLOAD.each do |path|
+        source = File.join(ROOT, path)
+        FileUtils.cp_r(source, File.join(top, path)) if File.exist?(source)
+      end
+      # No dependency/cache directories, Git data, or machine config in archives.
+      forbidden = Dir.glob(File.join(top, "**", "*"), File::FNM_DOTMATCH).select do |path|
+        %w[.git node_modules dist .env].include?(File.basename(path)) || File.symlink?(path)
+      end
+      raise "unsafe archive paths: #{forbidden.join(', ')}" unless forbidden.empty?
+      run!("tar", "-czf", archive, "-C", stage, File.basename(top))
+    end
+    File.write("#{archive}.sha256", "#{Digest::SHA256.file(archive).hexdigest}  #{File.basename(archive)}\n")
+    puts archive
+    archive
+  end
+
+  def smoke!
+    Dir.mktmpdir("cronbar-smoke-") do |temp|
+      home = File.join(temp, "home")
+      FileUtils.mkdir_p(home)
+      env = { "HOME" => home, "XDG_CONFIG_HOME" => File.join(home, ".config"), "XDG_STATE_HOME" => File.join(home, ".local/state"),
+              "CRONBAR_RUN_PASS" => nil, "CRONBAR_BIN" => nil, "CRONBAR_CONFIG" => nil,
+              "WAYLAND_DISPLAY" => nil, "DISPLAY" => nil, "PREFIX" => File.join(home, ".local"),
+              "APP_HOME" => File.join(home, ".local/share/cronbar"), "BIN_DIR" => File.join(home, ".local/bin"),
+              "SOLVERFORGE_PATH" => File.join(home, ".local/share/solverforge") }
+      binary = File.join(ROOT, "bin/cronbar")
+      config = File.join(home, ".config/cronbar/config.json")
+      cli = lambda { |*args| run!(RbConfig.ruby, binary, *args, "--config", config, env: env) }
+      cli.call("help")
+      JSON.parse(cli.call("config", "init", "--format", "json"))
+      cli.call("config", "validate")
+      parsed = JSON.parse(File.read(config))
+      parsed.fetch("runtime")["stateDir"] = File.join(home, "state")
+      parsed.fetch("surfaces").transform_values! { false }
+      File.write(config, JSON.generate(parsed))
+      raise "runs must start empty" unless JSON.parse(cli.call("runs", "--format", "json")).fetch("runs") == []
+      JSON.parse(cli.call("waybar", "render"))
+      JSON.parse(cli.call("ui", "status", "--format", "json"))
+      # Deliberately no passphrase: exercise rejection without reading the gate.
+      _, _, status = Open3.capture3(env, RbConfig.ruby, binary, "run", "smoke", "--config", config)
+      raise "unguarded run succeeded" if status.success?
+      parsed.fetch("runtime")["refreshSeconds"] = 1
+      File.write(config, JSON.generate(parsed))
+      _, _, status = Open3.capture3(env, RbConfig.ruby, binary, "config", "validate", "--config", config)
+      raise "invalid config accepted" if status.success?
+      parsed.fetch("runtime")["refreshSeconds"] = 300
+      File.write(config, JSON.generate(parsed))
+      %w[--install --install-solverforge].each { |mode| run!(RbConfig.ruby, __FILE__, mode, env: env) }
+      installed = File.join(env.fetch("BIN_DIR"), "cronbar")
+      run!(installed, "help", env: env)
+      wrapper = File.join(env.fetch("SOLVERFORGE_PATH"), "bin/solverforge-waybar-cronbar")
+      run!("bash", "-n", wrapper)
+      JSON.parse(run!(wrapper, "render", env: env))
+      archive = dist!(File.join(temp, "dist"))
+      listing = run!("tar", "-tzf", archive).lines.map(&:strip)
+      required = %w[bin/cronbar bin/solverforge-waybar-cronbar lib/cronbar.rb frontend/quickshell/shell.qml Makefile test/run.rb .versionrc.js]
+      required.concat(Dir.chdir(ROOT) { Dir.glob("{docs,examples}/**/*").select { |path| File.file?(path) } })
+      required << "LICENSE" if File.file?(File.join(ROOT, "LICENSE"))
+      required.each do |path|
+        raise "archive missing #{path}" unless listing.include?("cronbar-#{version!}/#{path}")
+      end
+      raise "archive contains dependencies/cache" if listing.any? { |path| path.split('/').any? { |part| %w[node_modules .git dist].include?(part) } }
+      checksum = File.read("#{archive}.sha256").split.first
+      raise "archive checksum mismatch" unless checksum == Digest::SHA256.file(archive).hexdigest
+      extracted = File.join(temp, "extracted")
+      FileUtils.mkdir_p(extracted)
+      run!("tar", "-xzf", archive, "-C", extracted)
+      archive_root = File.join(extracted, "cronbar-#{version!}")
+      run!(RbConfig.ruby, File.join(archive_root, "bin/cronbar"), "help", env: env)
+      run!("make", "install-user", "install-solverforge", chdir: archive_root, env: env)
+      run!(installed, "config", "validate", "--config", config, env: env)
+      JSON.parse(run!(wrapper, "render", env: env))
+      run!("make", "uninstall", chdir: archive_root, env: env)
+      raise "uninstall left application or wrapper" if File.exist?(installed) || File.symlink?(installed) || File.exist?(wrapper) || File.exist?(env.fetch("APP_HOME"))
+      raise "uninstall deleted config" unless File.file?(config)
+    end
+    puts "isolated CLI/install/archive smoke passed"
+  end
+
+  def syntax!
+    paths = ["bin/cronbar", *Dir.chdir(ROOT) { Dir.glob("{lib,test}/**/*.rb") }]
+    paths.concat(Dir.chdir(ROOT) { Dir.glob("bin/*").select { |p| File.read(p, 100).start_with?("#!/usr/bin/env ruby") } })
+    failed = paths.uniq.sort.reject do |path|
+      output, error, status = Open3.capture3(RbConfig.ruby, "-wc", File.join(ROOT, path))
+      puts "#{path}: #{output.strip}"
+      warn error unless error.empty?
+      status.success?
+    end
+    raise "syntax failed: #{failed.join(', ')}" unless failed.empty?
+    Dir.chdir(ROOT) { Dir.glob("bin/*") }.sort.each do |path|
+      first_line = File.open(File.join(ROOT, path), &:readline)
+      next unless first_line.match?(/\A#!.*\b(?:bash|sh)\s*$/)
+      run!("bash", "-n", path)
+      puts "#{path}: shell syntax OK"
+    end
+    run!("node", "--check", ".versionrc.js") if File.file?(File.join(ROOT, ".versionrc.js"))
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  begin
+    case ARGV.shift
+    when "--syntax" then CronbarTooling.syntax!
+    when "--smoke" then CronbarTooling.smoke!
+    when "--version" then puts CronbarTooling.version!
+    when "--install" then CronbarTooling.install!
+    when "--install-solverforge" then CronbarTooling.install_solverforge!
+    when "--uninstall" then CronbarTooling.uninstall!
+    when "--dist" then CronbarTooling.dist!
+    when nil
+      CronbarTooling.version!
+      CronbarTooling.syntax!
+      CronbarTooling.run!(RbConfig.ruby, "-Itest", "test/run.rb")
+      CronbarTooling.smoke!
+      puts "release-check passed"
+    else raise "usage: release-check [--syntax|--smoke|--version|--install|--install-solverforge|--uninstall|--dist]"
+    end
+    raise "unexpected arguments" unless ARGV.empty?
+  rescue StandardError => e
+    warn "cronbar tooling: #{e.message}"
+    exit 1
+  end
+end
