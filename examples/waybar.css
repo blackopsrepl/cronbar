@@ -1,0 +1,11 @@
+#custom-cronbar {
+  padding: 0 10px;
+  margin: 3px 2px;
+  color: #82fb9c;
+  border: 1px solid #26304a;
+  border-radius: 0;
+  background: #10131f;
+}
+#custom-cronbar:hover { border-color: #82fb9c; }
+#custom-cronbar.loading, #custom-cronbar.stale { color: #6a6e95; }
+#custom-cronbar.error { color: #e06c75; }

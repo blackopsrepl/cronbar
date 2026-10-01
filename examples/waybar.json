@@ -1,0 +1,12 @@
+{
+  "custom/cronbar": {
+    "exec": "solverforge-waybar-cronbar",
+    "return-type": "json",
+    "interval": 60,
+    "signal": 14,
+    "tooltip": true,
+    "on-click": "solverforge-waybar-cronbar panel",
+    "on-click-middle": "solverforge-waybar-cronbar refresh",
+    "on-click-right": "solverforge-waybar-cronbar panel"
+  }
+}

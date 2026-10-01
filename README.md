@@ -1,58 +1,85 @@
 # CronBar
 
-A SolverForge Linux companion bar that makes every scheduled job on the machine
-visible and runnable from one panel: the user crontab, `/etc/crontab`,
-`/etc/cron.d`, and anacron (`/etc/anacrontab`) — including jobs that are
-commented out, which can be run manually with one click.
-
-Part of the SolverForge bar family: RepoBar, TrexBar, BackupBar, TokenMaxx
-(CodexBar), SolverForge BenchBar.
-
-## Schedules at a glance
-
-| Surface | Readable? | Jobs |
-| --- | --- | --- |
-| `crontab -l` (user) | yes, `crontab` command | personal jobs |
-| `/etc/crontab` | root-only on this host | system jobs (root's own user crontab is readable) |
-| `/etc/cron.d` | directory listable, files root-only | packaged jobs |
-| `/etc/anacrontab` | readable | machine-wide daily/weekly/monthly |
-| `/var/spool/cron/tabs/` | root-only | — |
-| `/var/spool/anacron/` | timestamps readable | anacron last-run timestamps |
-
-`/etc/crontab` and `/etc/cron.d` are root-restricted on this host. CronBar reads
-them with sudo when sudo is available and shows them as
-`locked: run <cmd> as root` when it is not. System surfaces stay visible either
-way.
+A SolverForge Linux companion: cached Waybar chip plus a native QuickShell panel
+for the current user's cron jobs, system crontab, `/etc/cron.d`, and anacron.
+Valid commented schedule lines are retained for deliberate manual execution.
+Locked or missing sources stay visible rather than disappearing.
 
 ## Install
 
-```sh
-make install-user            # app under ~/.local, bin symlink
-make install-solverforge     # SolverForge waybar wrapper into ~/.local/share/solverforge/bin
-cronbar omarchy install      # Omarchy shell bar module (left: panel, middle: refresh)
-```
-
-## Quick start
+Requires Ruby 3.4+, Bash, and cron tools. Waybar and QuickShell are required for
+the desktop surfaces. No Ruby gems are needed. Release development additionally
+requires Node.js, npm and Git for `commit-and-tag-version`.
 
 ```sh
-cronbar config init          # write ~/.config/cronbar/config.json
-cronbar refresh              # scan every surface, write the cached snapshot
-cronbar panel                # open the QuickShell panel
-cronbar waybar render        # Waybar chip JSON from cached state
-cronbar run <id>             # run a job manually (incl. commented ones)
+make check
+make install-user
+make install-solverforge
+cronbar config init
+cronbar refresh
+cronbar waybar render
+cronbar panel
 ```
 
-Every job gets a stable id: `user`, `sys`, `cron.d:name`, `anacron:name`. Run a
-specific job with `cronbar run user` or, for duplicates, `cronbar run cron.d:name@2`.
+`install-user` installs under `~/.local/share/cronbar` and links
+`~/.local/bin/cronbar`. `install-solverforge` installs the wrapper; it does not
+rewrite the desktop layout. Add the module from `examples/waybar.json` to the
+framework's source config, and insert `custom/cronbar` immediately before `cpu`
+in `modules-right`. Merge `examples/waybar.css` into the framework stylesheet.
+Do not replace a SolverForge Linux managed symlink with a standalone config.
 
-## Docs
+To keep cached data fresh, install the supplied user service:
 
-- [WIREFRAME.md](WIREFRAME.md) — product boundary and runtime contract
-- [AGENTS.md](AGENTS.md) — repository guidelines for agents
-- `docs/architecture.md`, `docs/cli.md`, `docs/ui.md` — shipped docs
+```sh
+mkdir -p ~/.config/systemd/user
+cp examples/cronbar.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now cronbar.service
+```
+
+## Manual runs
+
+Select a job, enter the run passphrase, then click **run now** and **confirm run**.
+The CLI equivalent is `cronbar run <job-id> --yes` (masked terminal prompt).
+`--dry-run` previews without executing. The root-owned gate file
+`/etc/cronbar/run.pass` stores SHA-256 of `cronbar-run:<passphrase>`, not plaintext.
+
+```sh
+sudo install -d -m 755 /etc/cronbar
+ruby -rdigest -rio/console -e 'print "New run passphrase: "; p = STDIN.noecho(&:gets)&.chomp; puts; abort "empty passphrase" if p.to_s.empty?; File.write(ARGV.fetch(0), Digest::SHA256.hexdigest("cronbar-run:#{p}") + "\n")' "$HOME/cronbar-gate.digest"
+sudo install -o root -g "$(id -gn)" -m 640 "$HOME/cronbar-gate.digest" /etc/cronbar/run.pass
+rm "$HOME/cronbar-gate.digest"
+```
+
+The launching user must be able to read the digest. This gate prevents accidental
+runs; it is not an OS authorization boundary. `--pass` exposes its value in
+process arguments; prefer the CLI's masked prompt for terminal use.
+Commands run as the launching user, not automatically as the user named in a
+system cron row. Cron environment assignments are not reproduced. Inspect any
+privileged command before executing it. CronBar does not enumerate other users'
+private crontabs or systemd timers.
+
+## Development and releases
+
+`make help` lists checks, installation, packaging, and release targets.
+`make release-check` exercises isolated CLI, install and archive paths without
+opening a panel on the host or executing real scheduled workloads.
+The QuickShell UI has structural tests; visual testing belongs in the existing
+Lumen instance, not a second viewer or the user's working desktop.
+
+Releases use `commit-and-tag-version`: the tool updates this README and the Ruby
+version together, generates `CHANGELOG.md`, then commits and tags the release.
+Run the documented release targets from a clean committed tree. Push main and
+the generated tag to both remotes. GitHub's tag workflow runs the CI gate,
+verifies the tag/version contract, and publishes the source archive with
+changelog-derived release notes. Build artifacts and local credentials are
+never part of the checkout.
+
+- [Architecture and execution boundaries](docs/architecture.md)
+- [CLI and panel](docs/cli.md)
 
 ## Current release: `v0.1.0`
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

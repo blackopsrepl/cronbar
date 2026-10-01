@@ -1,0 +1,11 @@
+[Unit]
+Description=CronBar cached schedule collector
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/cronbar daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

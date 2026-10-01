@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_path="${CRONBAR_CONFIG:-$HOME/.config/cronbar/config.json}"
+cronbar_cmd="${CRONBAR_BIN:-$HOME/.local/bin/cronbar}"
+if [[ ! -x "$cronbar_cmd" ]]; then
+  cronbar_cmd="$(command -v cronbar || true)"
+fi
+if [[ -z "$cronbar_cmd" || ! -x "$cronbar_cmd" ]]; then
+  echo 'cronbar: executable is not installed' >&2
+  exit 1
+fi
+case "${1:-render}" in
+  render) exec "$cronbar_cmd" waybar render --config "$config_path" ;;
+  panel|details|open) exec "$cronbar_cmd" panel --config "$config_path" ;;
+  refresh) exec "$cronbar_cmd" refresh --config "$config_path" ;;
+  *) echo "cronbar: unknown wrapper action: $1" >&2; exit 1 ;;
+esac
