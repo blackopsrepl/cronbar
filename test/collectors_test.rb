@@ -92,6 +92,14 @@ module Cronbar
         assert_equal "15 3 * * *", sys[0][:schedule]
       end
 
+      def test_documentation_template_is_not_a_commented_job
+        content = "# *  *  *  *  * user-name command to be executed\n# * * * * * root echo real\n"
+        jobs = Collectors.parse_crontab(content, surface: "sys", source: "fixture", system: true)
+        assert_equal 1, jobs.length
+        assert_equal "echo real", jobs.first[:command]
+        assert jobs.first[:commented]
+      end
+
       def test_special_system_schedules_separate_the_user_from_the_command
         ["sys", "cron.d"].each do |surface|
           jobs = Collectors.parse_crontab("@hourly root run-parts /etc/cron.hourly\n", surface: surface, source: "fixture", system: true)

@@ -230,7 +230,11 @@ module Cronbar
       # A commented line counts as a commented job only when it still parses as
       # a cron entry; prose comments stay prose.
       def parse_commented_entry(stripped, system:)
-        parse_active_entry(stripped.sub(/\A#+\s*/, ""), system: system)
+        entry = stripped.sub(/\A#+\s*/, "")
+        # The distribution's schedule legend is a template, not a disabled job.
+        return nil if system && entry.split.join(" ") == "* * * * * user-name command to be executed"
+
+        parse_active_entry(entry, system: system)
       rescue StandardError
         nil
       end
