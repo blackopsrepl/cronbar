@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 
 ShellRoot {
     id: root
@@ -445,7 +446,10 @@ ShellRoot {
         implicitWidth: screen ? screen.width : 1280
         implicitHeight: screen ? screen.height : 800
         color: "transparent"
-        focusable: true
+        // Mac-bar behavior: no focus grab, no backdrop. The input mask is
+        // bound to the card, so clicks outside it reach the desktop.
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        mask: Region { item: card; intersection: Intersection.Intersect }
         aboveWindows: true
         exclusionMode: ExclusionMode.Ignore
         anchors {
@@ -484,17 +488,6 @@ ShellRoot {
 
         Item {
             anchors.fill: parent
-
-            Rectangle {
-                anchors.fill: parent
-                color: root.theme.bgDeep
-                opacity: 0.66
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: root.closeModal()
-            }
 
             Rectangle {
                 anchors.centerIn: parent
