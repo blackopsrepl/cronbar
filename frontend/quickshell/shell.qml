@@ -513,7 +513,7 @@ ShellRoot {
                 color: root.theme.bg
                 border.color: root.theme.good
                 border.width: 1
-                radius: 0
+                radius: 4
 
                 // Swallow clicks that land on the card but miss every
                 // control: without this they fall through to the backdrop
