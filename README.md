@@ -85,7 +85,7 @@ never part of the checkout.
 - [Architecture and execution boundaries](docs/architecture.md)
 - [CLI and panel](docs/cli.md)
 
-## Current release: `v0.1.1`
+## Current release: `v0.2.0`
 
 ## License
 
