@@ -31,7 +31,8 @@ module Cronbar
         end
 
         stale = State.stale?(snapshot, config, now)
-        view = Presenter.build_snapshot_view(snapshot, stale: stale)
+        runs = Array(State.read_runs(config)[:runs])
+        view = Presenter.build_snapshot_view(snapshot, stale: stale, runs: runs)
         chip = view[:chip] || {}
 
         {

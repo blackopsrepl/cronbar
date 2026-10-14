@@ -85,6 +85,12 @@ class PanelTest < Minitest::Test
     assert_includes panel, 'label: "commented, manual-only"'
   end
 
+
+  def test_waybar_chip_css_rules_the_failure_class
+    css = File.read(File.expand_path("../examples/waybar.css", __dir__))
+    assert_includes css, "#custom-cronbar.has-failures"
+  end
+
   def test_surface_cards_show_failing_count_when_present
     assert_includes panel, 'surface.failingCount'
   end

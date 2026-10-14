@@ -9,3 +9,5 @@
 #custom-cronbar:hover { border-color: #82fb9c; }
 #custom-cronbar.loading, #custom-cronbar.stale { color: #6a6e95; }
 #custom-cronbar.error { color: #e06c75; }
+#custom-cronbar.has-failures { color: #e06c75; }
+#custom-cronbar.has-errors { color: #e06c75; }
