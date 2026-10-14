@@ -29,6 +29,9 @@ ShellRoot {
     }
 
     property var alerts: viewData.alerts || []
+    // Safe accessor: before the first snapshot lands, viewData.statusChip is
+    // undefined and a bare .tone read warns every frame.
+    readonly property var statusChip: viewData.statusChip || ({ text: "loading", tone: "muted" })
     property bool narrowLayout: modal.width < 720
     property bool shortViewport: modal.height < 560
     property string narrowPanelView: "jobs"
@@ -788,7 +791,7 @@ ShellRoot {
                 height: Math.min(modal.height - 16, Math.max(480, modal.height - (modal.verticalMargin * 2)), root.shortViewport ? 9999 : modal.height - (modal.verticalMargin * 2))
                 anchors.centerIn: parent
                 color: root.theme.bg
-                border.color: root.chipTone(viewData.statusChip.tone)
+                border.color: root.chipTone(root.statusChip.tone)
                 border.width: 1
                 radius: 4
 
@@ -833,7 +836,7 @@ ShellRoot {
 
                             Text {
                                 Layout.fillWidth: true
-                                visible: !root.shortViewport || !root.narrowLayout || !root.historyOpen
+                                visible: !root.shortViewport || !root.narrowLayout || root.historyOpen
                                 text: "scheduled jobs · " + (snapshotAdapter.generatedAt || "waiting for data")
                                 color: root.theme.goodSoft
                                 font.family: root.textFont
@@ -845,15 +848,15 @@ ShellRoot {
                         Rectangle {
                             Layout.preferredWidth: statusChipText.width + 20
                             Layout.preferredHeight: 30
-                            color: Qt.rgba(root.chipTone(viewData.statusChip.tone).r, root.chipTone(viewData.statusChip.tone).g, root.chipTone(viewData.statusChip.tone).b, 0.13)
-                            border.color: root.chipTone(viewData.statusChip.tone)
+                            color: Qt.rgba(root.chipTone(root.statusChip.tone).r, root.chipTone(root.statusChip.tone).g, root.chipTone(root.statusChip.tone).b, 0.13)
+                            border.color: root.chipTone(root.statusChip.tone)
                             border.width: 1
 
                             Text {
                                 id: statusChipText
                                 anchors.centerIn: parent
-                                text: viewData.statusChip.text || "loading"
-                                color: root.chipTone(viewData.statusChip.tone)
+                                text: root.statusChip.text
+                                color: root.chipTone(root.statusChip.tone)
                                 font.family: root.textFont
                                 font.pixelSize: 12
                                 font.bold: true
