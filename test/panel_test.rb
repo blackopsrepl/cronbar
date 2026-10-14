@@ -96,6 +96,55 @@ class PanelTest < Minitest::Test
   end
 
   # ------------------------------------------------------------------
+  # Family type scale (Switchyard's): 10 body, 9 secondary/meta, 11
+  # section/card labels, 12 summary/metric values, 15 detail header,
+  # 21 panel title. Off-scale sizes are moved to the nearest scale step
+  # (14→15, 13→12, 20→21); the 7 stays only as the tiny dot glyph.
+  # ------------------------------------------------------------------
+
+  def family_font_declarations
+    panel.scan(/^\s*font\.pixelSize:\s*(\d+)\s*$/).map { |(size)| size }
+  end
+
+  def test_family_type_scale_matches_the_switchyard_scale
+    # The scale: 9 meta, 10 body, 11 labels, 12 values, 15 detail headers
+    # and icon glyphs, 21 titles + summary metric values (the brief's own
+    # mapping sends 20→21), 7 the tone-dot glyph only.
+    allowed = %w[7 9 10 11 12 15 21]
+    off_scale = family_font_declarations.reject { |size| allowed.include?(size) }
+    assert_empty off_scale,
+                 "family type scale (9/10/11/12/15/21, dot glyph 7): got #{off_scale}"
+  end
+
+  # Only the dot glyph stays at 7 — a shape (●), never a text size.
+  def test_size_seven_is_only_a_dot_glyph
+    glyph_contexts = 0
+    panel.each_line.with_index(1) do |line, number|
+      next unless line.match?(/^\s*font\.pixelSize:\s*7\s*$/)
+
+      context = panel.lines[(number - 5)...(number + 2)].join
+      assert_match(/text:\s*"●"/, context, "shell.qml:#{number}: pixelSize 7 is reserved for the tone-dot glyph")
+      glyph_contexts += 1
+    end
+  end
+
+  # The panel title is the family's largest surface text: 21 (Switchyard's
+  # scale), not a private 24. The header summary line reads at 12.
+  def test_panel_title_reads_at_the_family_title_size
+    header = panel[/text: "cronbar".*?\]/m].to_s
+    refute_empty header, "the panel title text was not found"
+    assert_match(/font\.pixelSize: root\.shortViewport \? 19 : 21/, header, "the panel title is 21 (19 on short viewports), never a private 24")
+    refute_match(/font\.pixelSize: root\.shortViewport \? 20 : 24/, header)
+
+    # Detail header 15: the selected-job heading, not a private 14.
+    refute_match(/font\.pixelSize: 14/, panel)
+    refute_match(/font\.pixelSize: 13/, panel)
+    refute_match(/font\.pixelSize: 20/, panel)
+    # Metric value 12: the status chip and surface cards read at 12.
+    assert_match(/font\.pixelSize: 15/, panel)
+  end
+
+  # ------------------------------------------------------------------
   # Responsive layout (the Switchyard pattern): below 720px width the
   # panes stop sharing a row; below 560px height the chrome tightens.
   # ------------------------------------------------------------------

@@ -455,7 +455,7 @@ ShellRoot {
                 text: value
                 color: accent
                 font.family: root.textFont
-                font.pixelSize: 20
+                font.pixelSize: 21
                 font.bold: true
                 elide: Text.ElideRight
             }
@@ -492,7 +492,7 @@ ShellRoot {
                 text: icon
                 color: accent
                 font.family: root.iconFont
-                font.pixelSize: 14
+                font.pixelSize: 15
             }
 
             Text {
@@ -546,7 +546,7 @@ ShellRoot {
                 text: root.selectedJob ? root.selectedJob.id : "select a job"
                 color: root.theme.info
                 font.family: root.textFont
-                font.pixelSize: 14
+                font.pixelSize: 15
                 font.bold: true
                 elide: Text.ElideRight
             }
@@ -904,7 +904,7 @@ ShellRoot {
                                     text: "cronbar"
                                     color: root.theme.text
                                     font.family: root.textFont
-                                    font.pixelSize: root.shortViewport ? 20 : 24
+                                    font.pixelSize: root.shortViewport ? 19 : 21
                                     font.bold: true
                                 }
                                 // Live dot: the panel is a live view; the dot
@@ -1174,7 +1174,7 @@ ShellRoot {
                                         text: snapshotAdapter.status === "loading" ? "waiting for first refresh…" : "no jobs match"
                                         color: root.theme.textMuted
                                         font.family: root.textFont
-                                        font.pixelSize: 13
+                                        font.pixelSize: 12
                                     }
                                 }
                             }
@@ -1444,7 +1444,7 @@ ShellRoot {
                                             text: snapshotAdapter.status === "loading" ? "waiting for first refresh\u2026" : "no jobs match"
                                             color: root.theme.textMuted
                                             font.family: root.textFont
-                                            font.pixelSize: 13
+                                            font.pixelSize: 12
                                         }
                                     }
                                 }
