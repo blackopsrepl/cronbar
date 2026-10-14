@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.2.1](https://github.com/blackopsrepl/cronbar/compare/v0.2.0...v0.2.1) (2026-10-14)
+
+
+### Features
+
+* **panel:** truthful status chip, surfaced diagnostics, narrow-screen switch e4549ff
+* **presenter:** name partial failure in status text, alerts and chip classes 828f79f
+
+
+### Bug Fixes
+
+* **panel:** guard the chip bindings before the first snapshot lands 291774c
+* **waybar:** render the chip from run history so failures color the bar 7b084dd
+
 ## [0.2.0](https://github.com/blackopsrepl/cronbar/compare/v0.1.1...v0.2.0) (2026-10-12)
 
 ### Features
