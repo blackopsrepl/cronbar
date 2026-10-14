@@ -130,6 +130,52 @@ class PanelTest < Minitest::Test
   end
 
   # ------------------------------------------------------------------
+  # Family visual contract (the *-bar family, modelled on TokenMaxx's
+  # square-cornered mac-bar look): no rounded corners anywhere. A
+  # non-zero radius exists only for circles-that-are-dots (the 7px
+  # live/status dot) or thin status stripes; frames, cards, buttons,
+  # badges and the shadow are square.
+  # ------------------------------------------------------------------
+
+  def family_radius_declarations
+    panel.scan(/^\s*radius:\s*(\d+(?:\.\d+)?)\s*$/).map(&:first)
+  end
+
+  def test_family_style_squares_every_corner_except_dot_circles
+    offenders = family_radius_declarations.reject { |radius| %w[0 3.5].include?(radius) }
+    assert_empty offenders,
+                 "family square corners: every frame/card/button/shadow radius is 0, got #{offenders}"
+
+    # Every surviving 3.5 must be a circle-that-is-a-dot: a 7x7 square
+    # with the radius at half its width, within its immediate context.
+    dots = 0
+    panel.each_line.with_index(1) do |line, number|
+      next unless (match = line.match(/^\s*radius:\s*3\.5\s*$/))
+
+      context = panel.lines[(number - 4)...(number + 3)].join
+      assert_match(/width:\s*7/, context, "shell.qml:#{number}: a radius 3.5 is only the 7px live/status dot")
+      assert_match(/height:\s*7/, context, "shell.qml:#{number}: a radius 3.5 is only the 7px live/status dot")
+      dots += 1
+    end
+    assert_operator dots, :>=, 1, "the live/status dot circles must survive the squaring"
+
+    # The retired frame and inner-border rounding must not come back.
+    %w[4 6 7 8 10 12].each do |retired|
+      refute_includes family_radius_declarations, retired,
+                      "radius #{retired} is off the family square-corner spec"
+    end
+  end
+
+  def test_status_chip_and_cards_stay_square
+    # The status chip rectangle and the header live-dot surroundings are
+    # the family's square chrome: no radius may reappear beside them.
+    chip = panel[/id: statusChipText.*?\n                    \}\n/m, 0].to_s
+    frame = panel[/id: modalFrame(.*?)Keys\.onEscapePressed/m, 1].to_s
+    refute_match(/radius:\s*[1-9]/, chip)
+    refute_match(/radius:\s*[1-9]/, frame)
+  end
+
+  # ------------------------------------------------------------------
   # Diagnostics on the surface: last-run outcome, exit code and stderr
   # head render in the detail pane, never behind an ellipsis.
   # ------------------------------------------------------------------

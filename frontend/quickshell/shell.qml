@@ -851,7 +851,7 @@ ShellRoot {
                 width: modalFrame.width
                 height: modalFrame.height
                 color: Qt.rgba(0, 0, 0, 0.35)
-                radius: 8
+                radius: 0
                 visible: modalFrame.visible
             }
 
@@ -862,7 +862,7 @@ ShellRoot {
                 color: root.theme.bg
                 border.color: root.chipTone(root.statusChip.tone)
                 border.width: 1
-                radius: 8
+                radius: 0
                 Keys.onEscapePressed: root.closeModal()
 
                 // Swallow clicks that land on the card but miss every control,
@@ -877,7 +877,7 @@ ShellRoot {
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
-                    radius: 7
+                    radius: 0
                     color: "transparent"
                     border.color: root.theme.borderSoft
                     border.width: 1
