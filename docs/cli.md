@@ -25,7 +25,10 @@ The panel offers surface metrics, text and surface filters, source/schedule
 information, command detail, run confirmation, and manual history. Amber means a
 commented schedule; cyan highlights anacron; unreadable surfaces show diagnostics.
 Click **History** to inspect manual outcomes, **Jobs** to return, **Refresh** to
-collect, or **Close**/the actual backdrop to dismiss.
+collect, or **Close** to dismiss. The panel drops below the bar edge as a bounded
+card: interact inside it, and dismiss it with Esc, the Close button, or a click
+on the exposed strip (the shadow band and corner slivers inside the card's
+window). A click on the desktop outside the strip is delivered to the desktop.
 
 Left/right click on the chip opens the panel; middle click refreshes. Signal 14
 is reserved for CronBar in the SolverForge Linux family. The chip is read-only

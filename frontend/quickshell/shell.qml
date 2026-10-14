@@ -32,8 +32,11 @@ ShellRoot {
     // Safe accessor: before the first snapshot lands, viewData.statusChip is
     // undefined and a bare .tone read warns every frame.
     readonly property var statusChip: viewData.statusChip || ({ text: "loading", tone: "muted" })
-    property bool narrowLayout: modal.width < 720
-    property bool shortViewport: modal.height < 560
+    property bool narrowLayout: panel.width < 720
+    // Viewport arithmetic, never panel.height: the panel's height derives from
+    // panelHeight() (which reads this flag), so measuring the flag from the
+    // panel's own height would tie a binding loop.
+    property bool shortViewport: ((root.panelScreen() ? root.panelScreen().height : 900) - (root.panelTopMargin || 52) - 12) < 560
     property string narrowPanelView: "jobs"
 
     property string filterText: ""
@@ -356,8 +359,13 @@ ShellRoot {
     component SurfaceCard: Rectangle {
         property var surface: null
 
-        Layout.fillWidth: true
-        Layout.preferredHeight: 64
+        // Flow is a positioner: it lays children out by width/height, and a
+        // bare Rectangle has no implicit size — the tiles would render 0x0
+        // with their text spilling as one overdrawn line. Measure from the
+        // tile's own content instead; Layout attached properties are ignored
+        // inside a positioner.
+        implicitWidth: surfaceCardColumn.implicitWidth + 20
+        implicitHeight: 64
         color: cardArea.containsMouse ? root.theme.surface : root.theme.surfaceAlt
         border.color: surface && surface.locked ? root.theme.warn : (surfaceFilter === (surface && surface.id) ? root.theme.info : root.theme.borderFaint)
         border.width: surfaceFilter === (surface && surface.id) ? 2 : 1
@@ -368,12 +376,13 @@ ShellRoot {
         }
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 8
+            id: surfaceCardColumn
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.margins: 10
             spacing: 2
 
             Text {
-                Layout.fillWidth: true
                 text: surface ? surface.label : ""
                 color: root.theme.textMuted
                 font.family: root.textFont
@@ -383,7 +392,6 @@ ShellRoot {
             }
 
             Text {
-                Layout.fillWidth: true
                 text: surface ? ((surface.jobCount || 0) + " jobs" + (surface.failingCount > 0 ? " · " + surface.failingCount + " failing" : "") + (surface.commentedCount ? " · " + surface.commentedCount + " off" : "")) : ""
                 color: surface && surface.locked ? root.theme.warn : (surface && surface.failingCount > 0 ? root.theme.bad : root.theme.good)
                 font.family: root.textFont
@@ -393,7 +401,6 @@ ShellRoot {
             }
 
             Text {
-                Layout.fillWidth: true
                 visible: surface && surface.locked
                 text: surface && surface.locked ? "locked (sudo)" : ""
                 color: root.theme.warn
@@ -421,20 +428,22 @@ ShellRoot {
         property string value: ""
         property color accent: root.theme.good
 
-        Layout.fillWidth: true
-        Layout.preferredHeight: 62
+        // Same positioner rule as SurfaceCard: implicit size from content.
+        implicitWidth: metricTileColumn.implicitWidth + 24
+        implicitHeight: 62
         color: root.theme.surfaceAlt
         border.color: Qt.rgba(accent.r, accent.g, accent.b, 0.5)
         border.width: 1
         radius: 0
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 8
+            id: metricTileColumn
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.margins: 12
             spacing: 2
 
             Text {
-                Layout.fillWidth: true
                 text: label
                 color: root.theme.textMuted
                 font.family: root.textFont
@@ -443,7 +452,6 @@ ShellRoot {
             }
 
             Text {
-                Layout.fillWidth: true
                 text: value
                 color: accent
                 font.family: root.textFont
@@ -717,31 +725,84 @@ ShellRoot {
         }
     }
 
+    // Bounded bar drop-down geometry. The surface is exactly the card's rect
+    // (plus the shadow's drop band) anchored to the top bar edge — the bar
+    // drop-down, not a covering modal: the desktop under and beside it stays
+    // interactive. The height is counted from the parts actually laid out —
+    // never from implicit sizes, which collapse on a ListView or a fillHeight
+    // pane — and capped to the viewport, so the card never overlaps the
+    // screen's bottom edge; rows beyond the count scroll inside the list with
+    // their own cue. 52 = the SolverForge Fira Code 13px bar plus its margins
+    // and a breathing gap; horizontal side margins center the bar-edge band on
+    // the chip's side of the bar (modules-left), and exact chip-anchoring has
+    // no plumbing while Waybar and QuickShell are separate processes (honest
+    // bar-edge placement, per family).
+    property int panelTopMargin: 52
+    property int panelMaxWidth: 1180
+    property int panelMaxHeight: 760
+    property int panelMinHeight: 480
+    property int shadowDrop: 6
+
+    // Screen dims are read from Quickshell.screens[0], never from the panel's
+    // own properties: reading panel.* inside the geometry that sizes the same
+    // window ties an implicitHeight/width binding loop.
+    function panelScreen() {
+        return Quickshell.screens.length ? Quickshell.screens[0] : null
+    }
+
+    function panelWidth() {
+        var screen = root.panelScreen()
+        var availableWidth = Math.max(332, (screen ? screen.width : 1440) - 64)
+        return Math.min(root.panelMaxWidth, availableWidth)
+    }
+
+    function panelHeight() {
+        // Counted chrome: card margins (16*2 or 10*2) + header band (48:
+        // title/subtitle and the 34px action buttons) + filter row (34) +
+        // count line (13) + layout spacings (12*3 or 8*3) between the top
+        // level bands + the tile band (two wrapped Flow rows of 64 + 8 wrap
+        // spacing).
+        var chromeCounted = root.shortViewport ? 132 : 180
+        var tilesBand = root.shortViewport ? 72 : 140
+        var alertsHeight = root.alerts.length > 0 ? Math.min(96, root.alerts.length * 30) : 0
+        var visibleJobs = Math.min(root.filteredJobs().length, 12)
+        var listPane = 63 + visibleJobs * 70
+        var detailFloor = 360
+        var contentHeight = Math.max(listPane, detailFloor)
+        var counted = chromeCounted + tilesBand + alertsHeight + contentHeight
+        var screen = root.panelScreen()
+        var availableHeight = Math.max(root.panelMinHeight, (screen ? screen.height : 900) - root.panelTopMargin - 12)
+        return Math.max(root.panelMinHeight, Math.min(root.panelMaxHeight, availableHeight, counted))
+    }
     PanelWindow {
-        id: modal
+        id: panel
         visible: uiAdapter.open
         screen: Quickshell.screens.length ? Quickshell.screens[0] : null
-        property int verticalMargin: 24
-        implicitWidth: screen ? screen.width : 1280
-        implicitHeight: screen ? screen.height : 800
+        // Bounded bar drop-down: the surface is anchored to the top bar edge
+        // (plus left/right, one edge each, which pin the horizontal span) and
+        // its implicit size is exactly the card's counted geometry plus the
+        // margin that hangs it from the bar and the shadow's bottom drop band
+        // — nothing bottom-anchored, nothing screen-sized. No mask: the
+        // bounded surface accepts input across its own rect (a Wayland layer
+        // surface is opaque to input), so a click inside the window but
+        // outside the card's radius dismisses; the desktop outside the strip
+        // is never covered and keeps its own clicks.
+        implicitWidth: panelWidth()
+        implicitHeight: panelHeight() + root.panelTopMargin + root.shadowDrop
         color: "transparent"
-        // Mac-bar behavior: no focus grab, no backdrop. The input mask is
-        // bound to the card, so clicks outside it reach the desktop.
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-        mask: Region { item: card; intersection: Intersection.Intersect }
         aboveWindows: true
         exclusionMode: ExclusionMode.Ignore
         anchors {
             top: true
-            bottom: true
             left: true
             right: true
         }
         margins {
-            top: 0
+            top: root.panelTopMargin
             bottom: 0
-            left: 0
-            right: 0
+            left: Math.max(8, Math.round(((root.panelScreen() ? root.panelScreen().width : 1440) - panelWidth()) / 2))
+            right: Math.max(8, Math.round(((root.panelScreen() ? root.panelScreen().width : 1440) - panelWidth()) / 2))
         }
 
         onVisibleChanged: {
@@ -751,7 +812,7 @@ ShellRoot {
 
         NumberAnimation {
             id: modalFade
-            target: card
+            target: modalFrame
             property: "opacity"
             from: 0
             to: 1
@@ -766,39 +827,49 @@ ShellRoot {
         }
 
         Item {
+            id: panelItem
             anchors.fill: parent
 
+            // Transparent strip catcher filling the bounded window: any click
+            // inside the surface but outside the card's radius (the shadow
+            // drop band and the corner slivers) dismisses. The card's own
+            // catcher swallows dead space inside the card first.
+            MouseArea {
+                id: stripCatcher
+                anchors.fill: parent
+                z: -2
+                onClicked: root.closeModal()
+            }
+
+            // Shadow separation: the card hangs from the bar edge, so a 5px
+            // translucent offset below it reads as a drop, not a float. The
+            // drop band (shadowDrop) below the card is part of the window.
             Rectangle {
-                anchors.centerIn: parent
-                width: card.width + 10
-                height: card.height + 10
-                radius: 0
-                color: Qt.rgba(0, 0, 0, 0.22)
+                id: frameShadow
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                width: modalFrame.width
+                height: modalFrame.height
+                color: Qt.rgba(0, 0, 0, 0.35)
+                radius: 8
+                visible: modalFrame.visible
             }
 
             Rectangle {
-                anchors.centerIn: parent
-                width: card.width + 4
-                height: card.height + 4
-                radius: 0
-                color: Qt.rgba(0, 0, 0, 0.34)
-            }
-
-            Rectangle {
-                id: card
-                width: root.narrowLayout ? Math.max(320, modal.width - 12)
-                                         : Math.min(1180, Math.max(720, modal.width - 64))
-                height: Math.min(modal.height - 16, Math.max(480, modal.height - (modal.verticalMargin * 2)), root.shortViewport ? 9999 : modal.height - (modal.verticalMargin * 2))
-                anchors.centerIn: parent
+                id: modalFrame
+                anchors.fill: parent
+                anchors.bottomMargin: root.shadowDrop
                 color: root.theme.bg
                 border.color: root.chipTone(root.statusChip.tone)
                 border.width: 1
-                radius: 4
+                radius: 8
+                Keys.onEscapePressed: root.closeModal()
 
-                // Swallow clicks that land on the card but miss every
-                // control: without this they fall through to the backdrop
-                // and close the panel under the user's cursor.
+                // Swallow clicks that land on the card but miss every control,
+                // so dead space inside the card stays interactive without
+                // reaching the strip catcher beneath the card.
                 MouseArea {
+                    id: cardCatcher
                     anchors.fill: parent
                     z: -1
                 }
@@ -806,7 +877,7 @@ ShellRoot {
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
-                    radius: 0
+                    radius: 7
                     color: "transparent"
                     border.color: root.theme.borderSoft
                     border.width: 1
@@ -826,12 +897,30 @@ ShellRoot {
                         ColumnLayout {
                             spacing: 2
 
-                            Text {
-                                text: "cronbar"
-                                color: root.theme.text
-                                font.family: root.textFont
-                                font.pixelSize: root.shortViewport ? 20 : 24
-                                font.bold: true
+                            Row {
+                                spacing: 8
+
+                                Text {
+                                    text: "cronbar"
+                                    color: root.theme.text
+                                    font.family: root.textFont
+                                    font.pixelSize: root.shortViewport ? 20 : 24
+                                    font.bold: true
+                                }
+                                // Live dot: the panel is a live view; the dot
+                                // carries that at a glance (amber while a
+                                // command is in flight, red on an error
+                                // snapshot, green when idle).
+                                Rectangle {
+                                    id: liveDot
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 7
+                                    height: 7
+                                    radius: 3.5
+                                    color: root.statusChip.tone === "bad" ? root.theme.bad
+                                        : (actionRunner.running || root.commandQueue.length > 0)
+                                            ? root.theme.warn : root.theme.goodSoft
+                                }
                             }
 
                             Text {

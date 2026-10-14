@@ -46,8 +46,8 @@ class PanelTest < Minitest::Test
   end
 
   def test_card_catches_unused_space_before_the_backdrop
-    card = panel.split("id: card", 2).last
-    assert_match(/MouseArea\s*\{\s*anchors\.fill: parent\s*z: -1\s*\}/, card)
+    card = panel.split("id: modalFrame", 2).last
+    assert_match(/MouseArea\s*\{\s*id:\s*cardCatcher\s+anchors\.fill: parent\s+z: -1\s*\}/, card)
     refute_includes panel, "logProbe"
     assert_includes panel, "property string runPass: \"\""
     assert_includes panel, "actionStdout.text.trim()"
@@ -101,8 +101,8 @@ class PanelTest < Minitest::Test
   # ------------------------------------------------------------------
 
   def test_narrow_viewports_switch_between_full_width_list_and_detail
-    assert_includes panel, "property bool narrowLayout: modal.width < 720"
-    assert_includes panel, 'property bool shortViewport: modal.height < 560'
+    assert_includes panel, "property bool narrowLayout: panel.width < 720"
+    assert_includes panel, "((root.panelScreen() ? root.panelScreen().height : 900)"
     assert_includes panel, 'property string narrowPanelView: "jobs"'
     assert_match(/id: dashboardAreas.*?visible: !root\.narrowLayout/m, panel)
     assert_match(/visible: root\.narrowLayout.*?StackLayout/m, panel)
@@ -112,8 +112,8 @@ class PanelTest < Minitest::Test
     assert_includes panel, "spacing: root.shortViewport ? 8 : 12"
     assert_includes panel, "anchors.margins: root.shortViewport || compact ? 8 : 12", "detail chrome tightens on short viewports"
     assert_includes panel, "spacing: root.shortViewport || compact ? 6 : 10"
-    # the card must follow a narrow screen instead of keeping a 720px floor:
-    assert_includes panel, "root.narrowLayout ? Math.max(320, modal.width - 12)"
+    # the bounded surface follows a narrow screen instead of keeping a 720px floor:
+    assert_includes panel, "var availableWidth = Math.max(332, (screen ? screen.width : 1440) - 64)"
   end
 
   # The narrow stack is a sibling after wide content — one page at a time,

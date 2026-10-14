@@ -37,6 +37,15 @@ A dry run is a preview and is not appended to execution history.
 
 QuickShell watches snapshot, UI, and run-history files. Commands are queued so
 refresh/close/run requests are not lost while a process is busy. Manual execution
-requires a passphrase and a second confirmation click. The card catches unused
-space so only actual backdrop clicks close the modal. No credential is embedded
+requires a passphrase and a second confirmation click. No credential is embedded
 in the shipped panel.
+
+The panel is a bounded bar drop-down that drops below the bar edge: the layer
+window (a bounded PanelWindow surface) is exactly the card's rect (plus the
+shadow's drop band) hung from the top bar edge, its height counted from the
+parts actually laid out and capped to the viewport — never a full-screen
+overlay. The desktop beside the strip stays
+interactive; apps are never covered unless the card is over them. A bounded
+Wayland surface is opaque to input, so the retired full-screen modal's
+"click anywhere outside closes" behavior cannot survive: dismissal is Esc, the
+Close button, or a click inside the strip but outside the card's radius.

@@ -10,7 +10,13 @@ entry, ready to wake only when you deliberately run it.
 A SolverForge Linux companion: cached Waybar chip plus a native QuickShell panel
 for the current user's cron jobs, system crontab, `/etc/cron.d`, and anacron.
 Valid commented schedule lines are retained for deliberate manual execution.
-Locked or missing sources stay visible rather than disappearing.
+Locked or missing sources stay visible rather than disappearing. The panel is a
+bounded bar drop-down that hangs from the bar edge over its chip's side of the
+bar: the surface drops below the bar edge as a bounded PanelWindow surface
+sized exactly to the card, never a full-screen overlay, so the desktop under and beside it stays
+interactive. Interact inside
+the card, and dismiss it with Esc, the Close button, or a click on the exposed
+strip.
 
 ## Install
 
