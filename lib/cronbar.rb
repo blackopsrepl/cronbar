@@ -14,5 +14,5 @@ require_relative "cronbar/runtime/omarchy"
 require_relative "cronbar/cli"
 
 module Cronbar
-  VERSION = "0.3.0"
+  VERSION = "0.4.0"
 end

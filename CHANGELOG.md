@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.0](https://github.com/blackopsrepl/cronbar/compare/v0.3.0...v0.4.0) (2026-10-14)
+
+
+### Features
+
+* **panel:** adopt the family type scale — Switchyard's sizes f86f26d
+* **panel:** square the family corners — radius 0 except the live dot 6d93f82
+
 ## [0.3.0](https://github.com/blackopsrepl/cronbar/compare/v0.2.1...v0.3.0) (2026-10-14)
 
 
