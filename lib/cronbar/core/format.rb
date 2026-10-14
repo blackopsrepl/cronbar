@@ -16,6 +16,8 @@ module Cronbar
         pieces << "#{active}*" if active.positive?
         anacron = summary[:anacronJobCount].to_i
         pieces << "#{anacron}an" if anacron.positive?
+        failing = summary[:failingJobCount].to_i
+        pieces << "!#{failing}" if failing.positive?
         pieces.join(" ")
       end
 
@@ -27,11 +29,13 @@ module Cronbar
                  "Commented: #{summary[:commentedJobCount].to_i} | Anacron: #{summary[:anacronJobCount].to_i}"
 
         grouped = Array(snapshot[:jobs]).group_by { |job| job[:surface] }
+        failing_ids = failing_ids_from_runs(snapshot)
         grouped.each do |surface, jobs|
           lines << ""
           lines << "#{surface_label(surface)} (#{jobs.length})"
           jobs.first(max_jobs.to_i).each do |job|
-            lines << "  #{job_line(job)}"
+            marker = failing_ids.include?(job[:id]) ? " ✗" : ""
+            lines << "  #{job_line(job)}#{marker}"
           end
           hidden = jobs.length - max_jobs.to_i
           lines << "  … #{hidden} more" if hidden.positive?
@@ -63,6 +67,17 @@ module Cronbar
         when "anacron" then "anacron"
         else surface.to_s
         end
+      end
+
+      def failing_ids_from_runs(snapshot)
+        runs = Array(snapshot[:runs])
+        outcomes = {}
+        runs.each do |record|
+          next if record[:dryRun]
+
+          outcomes[record[:jobId]] = record[:status]
+        end
+        outcomes.select { |_id, status| %w[failed timeout].include?(status.to_s) }.keys
       end
     end
   end

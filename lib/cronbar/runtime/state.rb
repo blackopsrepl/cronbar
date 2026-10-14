@@ -48,16 +48,17 @@ module Cronbar
       end
 
       def build_snapshot(config, collected, now = Time.now.utc)
+        runs = Array(State.read_runs(config)[:runs])
         snapshot = {
           snapshotVersion: SNAPSHOT_VERSION,
           generatedAt: now.iso8601,
           status: "ok",
-          summary: Presenter.build_summary(collected[:jobs]),
+          summary: Presenter.build_summary(collected[:jobs], runs: runs),
           jobs: collected[:jobs],
           errors: collected[:errors],
-          surfaces: Presenter.surface_overview(collected[:jobs], collected[:errors])
+          surfaces: Presenter.surface_overview(collected[:jobs], collected[:errors], runs: runs)
         }
-        snapshot[:view] = Presenter.build_snapshot_view(snapshot, stale: false)
+        snapshot[:view] = Presenter.build_snapshot_view(snapshot, stale: false, runs: runs)
         snapshot
       end
 
