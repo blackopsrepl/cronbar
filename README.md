@@ -1,4 +1,8 @@
-# CronBar
+# CronBar — retired
+
+> **Deprecated and archived.** CronBar has been retired from SolverForge Linux
+> and removed from its Waybar. This repository is archived read-only and is no
+> longer maintained. Everything below is kept for historical reference only.
 
 <p align="center">
   <img src="docs/assets/cronbar-mascot.png" width="200" alt="Tick, CronBar’s clockwork owl, holding an amber sleeping job">
